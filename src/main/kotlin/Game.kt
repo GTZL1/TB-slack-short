@@ -1,18 +1,12 @@
-//Code of the Composable file - problem is probably nested here
-
+import androidx.compose.desktop.Window
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.*
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.*
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 
 interface GameCallback {
@@ -28,10 +22,7 @@ interface GameInterface {
     fun unregisterToCenterRow(callback: GameCallback)
 }
 
-class Game(
-    val player: Player,
-    //usually there is also an opponent, but it is not included here
-) : GameInterface {
+class Game() : GameInterface {
     private val playerRowCallback = mutableListOf<GameCallback>()
     private val centerRowCallback = mutableListOf<GameCallback>()
 
@@ -62,10 +53,20 @@ class Game(
 
 @Composable
 fun Board(game: Game) {
+    //declared here only for reproducer
+    val startCards= arrayListOf(
+        PlayCard("Mammoth"),
+        PlayCard("Chloe Frazer",),
+        PlayCard("Judy Alvarez",),
+        PlayCard("Aloy",),
+        PlayCard("John Wick",),
+        PlayCard("Ellie",),
+    )
+
     val handCards = remember { mutableStateListOf<PlayCard>() }
     DisposableEffect(Unit) {
-        game.player.hand.getAllCards().forEach { pc: PlayCard ->
-            handCards.add(PlayCard(pc.name, pc.owner, pc.id))
+        startCards.forEach { pc: PlayCard ->
+            handCards.add(PlayCard(pc.name))
         }
         onDispose { }
     }
@@ -105,17 +106,10 @@ fun Board(game: Game) {
             modifier = Modifier.fillMaxWidth().height(180.dp)
                 .background(Color.Gray)
         ) {
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().height(180.dp)
-                .background(Color.Gray)
-        ) {
             centerRowCards.forEach { pc ->
                 DisplayCard(card = pc,
                     onDragEndUp = {},
-                    onDragEndDown = {
-                        //future callback to put cards in playerRowCards
-                    })
+                    onDragEndDown = { })
             }
         }
         Row(
@@ -124,9 +118,7 @@ fun Board(game: Game) {
         ) {
             playerRowCards.map { pc ->
                 DisplayCard(card = pc,
-                    onDragEndUp = {
-                        game.cardToCenterRow(pc)
-                    },
+                    onDragEndUp = {game.cardToCenterRow(pc)},
                     onDragEndDown = {})
             }
         }
@@ -137,9 +129,7 @@ fun Board(game: Game) {
             handCards.map { pc: PlayCard ->
                 DisplayCard(modifier = Modifier,
                     card = pc,
-                    onDragEndUp = {
-                        game.cardToPlayerRow(pc)
-                    },
+                    onDragEndUp = {game.cardToPlayerRow(pc)},
                     onDragEndDown = {})
             }
         }
@@ -162,9 +152,8 @@ fun DisplayCard(
         modifier = modifier
             .offset(offsetX.dp, offsetY.dp)
             .width(100.dp).height(180.dp)
-            .clip(shape = CutCornerShape(5.dp))
-            .border(width = 2.dp, color = Color.Red, shape = CutCornerShape(5.dp))
-            .pointerInput(currentOnDragEndDown, currentOnDragEndUp) {
+            .border(width = 2.dp, color = Color.Red)
+            .pointerInput(key1 = null) {
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
                         change.consumeAllChanges()
@@ -190,29 +179,28 @@ fun DisplayCard(
                     .weight(2.5f)
                     .fillMaxSize()
                     .background(Color.White),
-            ) {} //usually there is the card image in this box
+            ) {}
             Box(
-                modifier = Modifier
-                    .weight(1f)
+                modifier = Modifier.weight(1f)
                     .fillMaxSize()
                     .background(color = Color.Yellow)
             )
             {
                 Column(
-                    modifier = Modifier.fillMaxSize()
-                        .padding(horizontal = 5.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 5.dp),
                 ) {
-                    Text(
-                        text = card.name,
-                        style = TextStyle(
-                            fontFamily = FontFamily.Default, fontSize = 14.sp, fontWeight = FontWeight.Bold
-                        ),
-                        textAlign = TextAlign.Center
-                    )
+                    Text(text = card.name,)
                 }
             }
         }
+    }
+}
+
+class PlayCard(val name: String) {}
+
+fun main(args: Array<String>): Unit {
+    System.setProperty("skiko.renderApi", "OPENGL")
+    Window(title = "HEIG game", size = IntSize(700, 800)) {
+        Board(Game())
     }
 }
