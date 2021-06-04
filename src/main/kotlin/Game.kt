@@ -109,7 +109,8 @@ fun Board(game: Game) {
             centerRowCards.forEach { pc ->
                 DisplayCard(card = pc,
                     onDragEndUp = {},
-                    onDragEndDown = { })
+                    onDragEndDown = {playerRowCards.add(pc)
+                    centerRowCards.remove(pc)})
             }
         }
         Row(
@@ -142,7 +143,7 @@ fun DisplayCard(
     card: PlayCard,
     onDragEndUp: () -> Unit,
     onDragEndDown: () -> Unit
-) {
+) = key(card) {
     val currentOnDragEndUp by rememberUpdatedState(onDragEndUp)
     val currentOnDragEndDown by rememberUpdatedState(onDragEndDown)
     var offsetX by remember { mutableStateOf(0f) }
