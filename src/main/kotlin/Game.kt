@@ -9,95 +9,95 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.*
 
+//used only for reproducer
+val startCards= arrayListOf(
+    PlayCard("Mammoth"),
+    PlayCard("Chloe Frazer",),
+    PlayCard("Judy Alvarez",),
+    PlayCard("Aloy",),
+    PlayCard("John Wick",),
+    PlayCard("Ellie",),
+)
+
 interface GameCallback {
-    fun onNewData(pc: PlayCard)
+    fun onNewCard()
 }
 
-interface GameInterface {
-    fun cardToPlayerRow(card: PlayCard)
-    fun cardToCenterRow(card: PlayCard)
-    fun registerToPlayerRow(callback: GameCallback)
-    fun unregisterToPlayerRow(callback: GameCallback)
-    fun registerToCenterRow(callback: GameCallback)
-    fun unregisterToCenterRow(callback: GameCallback)
-}
-
-class Game() : GameInterface {
+class Game() {
+    private val handRowCallback = mutableListOf<GameCallback>()
     private val playerRowCallback = mutableListOf<GameCallback>()
-    private val centerRowCallback = mutableListOf<GameCallback>()
 
-    override fun cardToPlayerRow(card: PlayCard) {
-        playerRowCallback.forEach { it.onNewData(pc = card) }
+    //cards of each row (actual state of the game)
+    val handCards= mutableListOf<PlayCard>()
+    val playerRowCards = mutableListOf<PlayCard>()
+
+    init {
+        startCards.forEach { pc: PlayCard ->
+            handCards.add(PlayCard(pc.name))
+        }
     }
 
-    override fun cardToCenterRow(card: PlayCard) {
-        centerRowCallback.forEach { it.onNewData(pc = card) }
+    //When is moved to the upper row, it is added to it and removed from the old one
+    //the callbacks notify the observers
+    fun cardToPlayerRow(card: PlayCard) {
+        playerRowCards.add(card)
+        handCards.remove(card)
+
+        handRowCallback.forEach{it.onNewCard()}
+        playerRowCallback.forEach { it.onNewCard() }
     }
 
-    override fun registerToPlayerRow(callback: GameCallback) {
+    fun registerToPlayerRow(callback: GameCallback) {
         playerRowCallback.add(callback)
     }
 
-    override fun unregisterToPlayerRow(callback: GameCallback) {
+    fun unregisterToPlayerRow(callback: GameCallback) {
         playerRowCallback.remove(callback)
     }
 
-    override fun registerToCenterRow(callback: GameCallback) {
-        centerRowCallback.add(callback)
+    fun registerToHandRow(callback: GameCallback) {
+        handRowCallback.add(callback)
     }
 
-    override fun unregisterToCenterRow(callback: GameCallback) {
-        centerRowCallback.add(callback)
+    fun unregisterToHandRow(callback: GameCallback) {
+        handRowCallback.remove(callback)
     }
 }
 
 @Composable
-fun Board(game: Game) {
-    //declared here only for reproducer
-    val startCards= arrayListOf(
-        PlayCard("Mammoth"),
-        PlayCard("Chloe Frazer",),
-        PlayCard("Judy Alvarez",),
-        PlayCard("Aloy",),
-        PlayCard("John Wick",),
-        PlayCard("Ellie",),
-    )
-
-    val handCards = remember { mutableStateListOf<PlayCard>() }
-    DisposableEffect(Unit) {
-        startCards.forEach { pc: PlayCard ->
-            handCards.add(PlayCard(pc.name))
-        }
-        onDispose { }
-    }
-
-    val playerRowCards = remember { mutableStateListOf<PlayCard>() }
+fun getHandCards(game: Game): MutableList<PlayCard> {
+    var cards by remember { mutableStateOf(game.handCards) }
     DisposableEffect(game) {
         val callback =
             object : GameCallback {
-                override fun onNewData(pc: PlayCard) {
-                    playerRowCards.add(pc)
-                    handCards.remove(pc)
+                override fun onNewCard() {
+                    cards=game.handCards
+                }
+            }
+        game.registerToHandRow(callback)
+        onDispose { game.unregisterToHandRow(callback) }
+    }
+    return cards
+}
+
+@Composable
+fun getPlayerRowCards(game: Game): MutableList<PlayCard>{
+    var cards by remember { mutableStateOf(game.playerRowCards) }
+    DisposableEffect(game) {
+        val callback =
+            object : GameCallback {
+                override fun onNewCard() {
+                    cards=game.playerRowCards
                 }
             }
         game.registerToPlayerRow(callback)
         onDispose { game.unregisterToPlayerRow(callback) }
     }
+    return cards
+}
 
-    val centerRowCards = remember { mutableStateListOf<PlayCard>() }
-    DisposableEffect(game) {
-        val callback =
-            object : GameCallback {
-                override fun onNewData(pc: PlayCard) {
-                    centerRowCards.add(pc)
-                    playerRowCards.remove(pc)
-
-                }
-            }
-        game.registerToCenterRow(callback)
-        onDispose { game.unregisterToCenterRow(callback) }
-    }
-
+@Composable
+fun Board(game: Game) {
     Column(
         modifier = Modifier.fillMaxSize(1f),
         verticalArrangement = Arrangement.SpaceBetween,
@@ -105,21 +105,18 @@ fun Board(game: Game) {
         Row(
             modifier = Modifier.fillMaxWidth().height(180.dp)
                 .background(Color.Gray)
-        ) {
-            centerRowCards.forEach { pc ->
-                DisplayCard(card = pc,
-                    onDragEndUp = {},
-                    onDragEndDown = {playerRowCards.add(pc)
-                    centerRowCards.remove(pc)})
-            }
+        ) { //row empty in the reproducer
         }
         Row(
             modifier = Modifier.fillMaxWidth().height(180.dp)
                 .background(Color.Gray)
         ) {
-            playerRowCards.map { pc ->
+            //retrieve the actual state of the row using the callbacks
+            getPlayerRowCards(game).map { pc ->
                 DisplayCard(card = pc,
-                    onDragEndUp = {game.cardToCenterRow(pc)},
+                    isMovableUp = false,
+                    isMovableDown = false,
+                    onDragEndUp = {},
                     onDragEndDown = {})
             }
         }
@@ -127,9 +124,11 @@ fun Board(game: Game) {
             modifier = Modifier.fillMaxWidth().height(180.dp)
                 .background(Color.Gray)
         ) {
-            handCards.map { pc: PlayCard ->
+            getHandCards(game).map { pc: PlayCard ->
                 DisplayCard(modifier = Modifier,
                     card = pc,
+                    isMovableUp = getPlayerRowCards(game).size< 4,
+                    isMovableDown = false,
                     onDragEndUp = {game.cardToPlayerRow(pc)},
                     onDragEndDown = {})
             }
@@ -137,18 +136,21 @@ fun Board(game: Game) {
     }
 }
 
+//This part of code didn't change when I tried working on the new callbacks.
+//I don't think the problem is nested here
 @Composable
 fun DisplayCard(
     modifier: Modifier = Modifier,
     card: PlayCard,
+    isMovableUp: Boolean,
+    isMovableDown: Boolean,
     onDragEndUp: () -> Unit,
     onDragEndDown: () -> Unit
-) = key(card) {
-    val currentOnDragEndUp by rememberUpdatedState(onDragEndUp)
-    val currentOnDragEndDown by rememberUpdatedState(onDragEndDown)
+) = key(card, isMovableUp, isMovableDown) {
     var offsetX by remember { mutableStateOf(0f) }
     var offsetY by remember { mutableStateOf(0f) }
-    var start = offsetY
+    val startY = offsetY
+    val startX = offsetX
     Box(
         modifier = modifier
             .offset(offsetX.dp, offsetY.dp)
@@ -158,16 +160,19 @@ fun DisplayCard(
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
                         change.consumeAllChanges()
+                            if(isMovableUp || isMovableDown)
                             offsetX += dragAmount.x
                             offsetY += dragAmount.y
                     },
                     onDragEnd = {
-                        if (start > offsetY) {
-                            currentOnDragEndUp()
-                        } else if (start < offsetY) {
-                            currentOnDragEndDown()
+                        if (isMovableUp && startY > offsetY) {
+                            onDragEndUp()
+                        } else if (isMovableDown && startY < offsetY) {
+                            onDragEndDown()
+                        } else {
+                            offsetY=startY
+                            offsetX=startX
                         }
-                        start = offsetY
                     })
             },
     ) {
