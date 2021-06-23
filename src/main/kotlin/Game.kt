@@ -28,8 +28,8 @@ class Game() {
     private val playerRowCallback = mutableListOf<GameCallback>()
 
     //cards of each row (actual state of the game)
-    val handCards= mutableListOf<PlayCard>()
-    val playerRowCards = mutableListOf<PlayCard>()
+    val handCards= mutableStateListOf<PlayCard>()
+    val playerRowCards = mutableStateListOf<PlayCard>()
 
     init {
         startCards.forEach { pc: PlayCard ->
@@ -43,8 +43,11 @@ class Game() {
         playerRowCards.add(card)
         handCards.remove(card)
 
+        println("before")
+
         handRowCallback.forEach{it.onNewCard()}
         playerRowCallback.forEach { it.onNewCard() }
+        println("after notifs")
     }
 
     fun registerToPlayerRow(callback: GameCallback) {
@@ -65,13 +68,13 @@ class Game() {
 }
 
 @Composable
-fun getHandCards(game: Game): MutableList<PlayCard> {
-    var cards by remember { mutableStateOf(game.handCards) }
+fun getHandCards(game: Game): State<MutableList<PlayCard>> {
+    var cards = remember { mutableStateOf(game.handCards) }
     DisposableEffect(game) {
         val callback =
             object : GameCallback {
                 override fun onNewCard() {
-                    cards=game.handCards
+                    cards.value=game.handCards
                 }
             }
         game.registerToHandRow(callback)
@@ -81,13 +84,14 @@ fun getHandCards(game: Game): MutableList<PlayCard> {
 }
 
 @Composable
-fun getPlayerRowCards(game: Game): MutableList<PlayCard>{
-    var cards by remember { mutableStateOf(game.playerRowCards) }
+fun getPlayerRowCards(game: Game): State<MutableList<PlayCard>>{
+    var cards = remember { mutableStateOf(game.playerRowCards) }
     DisposableEffect(game) {
         val callback =
             object : GameCallback {
                 override fun onNewCard() {
-                    cards=game.playerRowCards
+                    cards.value=game.playerRowCards
+                    println("player row callback")
                 }
             }
         game.registerToPlayerRow(callback)
@@ -112,7 +116,7 @@ fun Board(game: Game) {
                 .background(Color.Gray)
         ) {
             //retrieve the actual state of the row using the callbacks
-            getPlayerRowCards(game).map { pc ->
+            getPlayerRowCards(game).value.forEach { pc ->
                 DisplayCard(card = pc,
                     isMovableUp = false,
                     isMovableDown = false,
@@ -124,10 +128,10 @@ fun Board(game: Game) {
             modifier = Modifier.fillMaxWidth().height(180.dp)
                 .background(Color.Gray)
         ) {
-            getHandCards(game).map { pc: PlayCard ->
+            getHandCards(game).value.forEach { pc: PlayCard ->
                 DisplayCard(modifier = Modifier,
                     card = pc,
-                    isMovableUp = getPlayerRowCards(game).size< 4,
+                    isMovableUp = getPlayerRowCards(game).value.size< 4,
                     isMovableDown = false,
                     onDragEndUp = {game.cardToPlayerRow(pc)},
                     onDragEndDown = {})
