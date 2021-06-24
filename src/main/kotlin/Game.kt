@@ -20,7 +20,7 @@ val startCards= arrayListOf(
 )
 
 interface GameCallback {
-    fun onNewCard()
+    fun onNewCard(pc: PlayCard)
 }
 
 class Game() {
@@ -43,11 +43,8 @@ class Game() {
         playerRowCards.add(card)
         handCards.remove(card)
 
-        println("before")
-
-        handRowCallback.forEach{it.onNewCard()}
-        playerRowCallback.forEach { it.onNewCard() }
-        println("after notifs")
+        handRowCallback.forEach{it.onNewCard(pc = card)}
+        playerRowCallback.forEach { it.onNewCard(pc = card) }
     }
 
     fun registerToPlayerRow(callback: GameCallback) {
@@ -73,7 +70,7 @@ fun getHandCards(game: Game): State<MutableList<PlayCard>> {
     DisposableEffect(game) {
         val callback =
             object : GameCallback {
-                override fun onNewCard() {
+                override fun onNewCard(pc: PlayCard) {
                     cards.value=game.handCards
                 }
             }
@@ -89,9 +86,8 @@ fun getPlayerRowCards(game: Game): State<MutableList<PlayCard>>{
     DisposableEffect(game) {
         val callback =
             object : GameCallback {
-                override fun onNewCard() {
+                override fun onNewCard(pc: PlayCard) {
                     cards.value=game.playerRowCards
-                    println("player row callback")
                 }
             }
         game.registerToPlayerRow(callback)
