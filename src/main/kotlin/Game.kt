@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.typesafe.config.ConfigException
 import io.ktor.client.*
 import io.ktor.client.features.*
 import io.ktor.client.request.*
@@ -19,20 +20,26 @@ import java.util.*
 class DeckType(val id: Int, var name: String) {}
 
 class DeckGUI(
-    decksList: MutableList<DeckType>
+    decksList: List<DeckType>
 ) {
-    val decks by mutableStateOf(decksList)
-    val deck = mutableStateOf(decks.first())
-    var deckName =mutableStateOf(deck.value.name)
+    val decks = mutableStateListOf<DeckType>().apply { addAll(decksList) }
+    val deck = mutableStateOf<DeckType>(decks.first())
 
     internal fun newDeck() {
         decks.add(DeckType((-1), UUID.randomUUID().toString().take(15)))
+        deck.value=decks.last()
+    }
+
+    fun removeDeck() {
+        decks.remove(deck.value)
+        deck.value=decks.first()
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DeckScreen(deckGUI: DeckGUI) {
+    val deckName = mutableStateOf(deckGUI.deck.value.name)
     Column(
         modifier = Modifier.fillMaxSize()
     ){
@@ -46,9 +53,9 @@ fun DeckScreen(deckGUI: DeckGUI) {
         ) {
             DeckChoiceMenu(deckGUI.decks, deckGUI.deck)
             TextField(
-                value = deckGUI.deckName.value,
+                value = deckName.value,
                 onValueChange = { value ->
-                    deckGUI.deckName.value = value
+                    deckName.value = value
                     deckGUI.deck.value.name=value},
                 label = {
                     Text(
@@ -64,7 +71,14 @@ fun DeckScreen(deckGUI: DeckGUI) {
                 Text(text = "New deck",
                     color = Color.White)
             }
-
+            Button(modifier = Modifier.height(50.dp).padding(horizontal = 10.dp),
+                enabled = deckGUI.decks.size>1,
+                onClick = {
+                    deckGUI.removeDeck()
+                }){
+                Text(text = "Delete deck",
+                    color = Color.White)
+            }
         }
     }
 }
@@ -98,7 +112,7 @@ private fun DeckChoiceMenu(
 
 fun main(args: Array<String>): Unit {
     System.setProperty("skiko.renderApi", "OPENGL")
-    Window(title = "HEIG game", size = IntSize(700, 800)) {
-        DeckScreen(DeckGUI(mutableListOf(DeckType(1, "default"))))
+    Window(title = "HEIG game", size = IntSize(900, 800)) {
+        DeckScreen(remember { DeckGUI(mutableListOf(DeckType(1, "default")))})
     }
 }
